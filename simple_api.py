@@ -3,17 +3,35 @@
 Simple API server for Polymarket Insider Detector
 """
 
-from flask import Flask, jsonify, request
-from flask_cors import CORS
-import psycopg2
-import psycopg2.extras
-from config import Config
+  from flask import Flask, jsonify, request, send_from_directory
+  from flask_cors import CORS
+  import psycopg2
+  import psycopg2.extras
+  from config import Config
+  import os
 
-app = Flask(__name__)
-CORS(app)
+  app = Flask(__name__)
+  CORS(app)
 
-@app.route('/api/health')
-def health():
+  @app.route('/')
+  def dashboard():
+      """Serve the main dashboard"""
+      try:
+          with open('dashboard_minimal.html', 'r') as f:
+              return f.read()
+      except FileNotFoundError:
+          return jsonify({'message': 'Dashboard not found. Try /api/health 
+  to test API'}), 404
+
+  @app.route('/dashboard')
+  def dashboard_alt():
+      """Alternative dashboard route"""
+      return dashboard()
+
+  @app.route('/dashboard_minimal.html')
+  def dashboard_file():
+      """Direct file access"""
+      return dashboard()def health():
     return jsonify({'status': 'healthy'})
 
 @app.route('/api/stats')
