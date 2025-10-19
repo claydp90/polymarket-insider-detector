@@ -11,8 +11,7 @@ from config import Config
 import os
 
 app = Flask(__name__)
-  CORS(app, origins="*", methods=["GET", "POST", "OPTIONS"],
-  allow_headers=["Content-Type", "Authorization"])
+CORS(app)
 
 @app.route('/')
 def dashboard():
