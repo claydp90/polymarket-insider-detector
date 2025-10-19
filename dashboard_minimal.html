@@ -1,0 +1,701 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Polymarket Insider Detection</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'SF Pro Text', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: #0a0a0b;
+            color: #e4e4e7;
+            min-height: 100vh;
+            font-size: 14px;
+            line-height: 1.5;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 24px;
+        }
+        
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 32px;
+            padding-bottom: 16px;
+            border-bottom: 1px solid #27272a;
+        }
+        
+        .header h1 {
+            font-size: 24px;
+            font-weight: 600;
+            color: #fafafa;
+            letter-spacing: -0.025em;
+        }
+        
+        .status {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 13px;
+            color: #a1a1aa;
+        }
+        
+        .status-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: #10b981;
+            animation: pulse 2s infinite;
+        }
+        
+        .status-offline {
+            background: #ef4444;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+            margin-bottom: 32px;
+        }
+        
+        .metric-card {
+            background: #18181b;
+            border: 1px solid #27272a;
+            border-radius: 8px;
+            padding: 20px;
+            transition: border-color 0.2s;
+        }
+        
+        .metric-card:hover {
+            border-color: #3f3f46;
+        }
+        
+        .metric-value {
+            font-size: 32px;
+            font-weight: 700;
+            color: #fafafa;
+            margin-bottom: 4px;
+            font-variant-numeric: tabular-nums;
+        }
+        
+        .metric-label {
+            font-size: 13px;
+            color: #71717a;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            font-weight: 500;
+        }
+        
+        .high-risk { color: #ef4444; }
+        .medium-risk { color: #f59e0b; }
+        .low-risk { color: #10b981; }
+        
+        .section {
+            background: #18181b;
+            border: 1px solid #27272a;
+            border-radius: 8px;
+            margin-bottom: 24px;
+        }
+        
+        .section-header {
+            padding: 20px 24px;
+            border-bottom: 1px solid #27272a;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .section-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: #fafafa;
+        }
+        
+        .refresh-status {
+            font-size: 12px;
+            color: #71717a;
+            font-variant-numeric: tabular-nums;
+        }
+        
+        .filters {
+            display: flex;
+            gap: 4px;
+            padding: 16px 24px;
+            border-bottom: 1px solid #27272a;
+        }
+        
+        .filter-btn {
+            padding: 6px 12px;
+            border: 1px solid #3f3f46;
+            border-radius: 6px;
+            background: transparent;
+            color: #a1a1aa;
+            font-size: 13px;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-weight: 500;
+        }
+        
+        .filter-btn:hover {
+            border-color: #52525b;
+            color: #e4e4e7;
+        }
+        
+        .filter-btn.active {
+            background: #3b82f6;
+            border-color: #3b82f6;
+            color: #ffffff;
+        }
+        
+        .content {
+            padding: 0;
+        }
+        
+        .trade-item {
+            border-bottom: 1px solid #27272a;
+            padding: 20px 24px;
+            transition: background-color 0.2s;
+        }
+        
+        .trade-item:hover {
+            background: rgba(255, 255, 255, 0.02);
+        }
+        
+        .trade-item:last-child {
+            border-bottom: none;
+        }
+        
+        .trade-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 12px;
+        }
+        
+        .amount {
+            font-size: 20px;
+            font-weight: 700;
+            color: #fafafa;
+            font-variant-numeric: tabular-nums;
+        }
+        
+        .risk-badge {
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .risk-high {
+            background: rgba(239, 68, 68, 0.1);
+            color: #fca5a5;
+            border: 1px solid rgba(239, 68, 68, 0.2);
+        }
+        
+        .risk-medium {
+            background: rgba(245, 158, 11, 0.1);
+            color: #fcd34d;
+            border: 1px solid rgba(245, 158, 11, 0.2);
+        }
+        
+        .risk-low {
+            background: rgba(16, 185, 129, 0.1);
+            color: #6ee7b7;
+            border: 1px solid rgba(16, 185, 129, 0.2);
+        }
+        
+        .market-title {
+            font-size: 15px;
+            font-weight: 500;
+            color: #fafafa;
+            margin-bottom: 8px;
+            line-height: 1.4;
+        }
+        
+        .urgency-high {
+            color: #ef4444;
+            font-weight: 600;
+        }
+        
+        .urgency-medium {
+            color: #f59e0b;
+            font-weight: 500;
+        }
+        
+        .trade-details {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+            margin-bottom: 12px;
+            font-size: 13px;
+        }
+        
+        .detail-group span {
+            color: #71717a;
+        }
+        
+        .detail-value {
+            color: #e4e4e7;
+            font-weight: 500;
+        }
+        
+        .flags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin-bottom: 12px;
+        }
+        
+        .flag {
+            background: rgba(239, 68, 68, 0.1);
+            color: #fca5a5;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 11px;
+            font-weight: 500;
+        }
+        
+        .insight {
+            background: rgba(59, 130, 246, 0.05);
+            border-left: 2px solid #3b82f6;
+            padding: 8px 12px;
+            margin: 12px 0;
+            font-size: 12px;
+            color: #93c5fd;
+            border-radius: 0 4px 4px 0;
+        }
+        
+        .links {
+            display: flex;
+            gap: 16px;
+            font-size: 12px;
+        }
+        
+        .link {
+            color: #3b82f6;
+            text-decoration: none;
+            font-weight: 500;
+            transition: color 0.2s;
+        }
+        
+        .link:hover {
+            color: #60a5fa;
+        }
+        
+        .link-secondary {
+            color: #71717a;
+        }
+        
+        .loading {
+            padding: 40px;
+            text-align: center;
+            color: #71717a;
+        }
+        
+        .spinner {
+            width: 20px;
+            height: 20px;
+            border: 2px solid #27272a;
+            border-top: 2px solid #3b82f6;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 12px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .empty-state {
+            padding: 60px 24px;
+            text-align: center;
+            color: #71717a;
+        }
+        
+        .empty-icon {
+            width: 48px;
+            height: 48px;
+            background: #27272a;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 16px;
+            font-size: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Polymarket Insider Detection</h1>
+            <div class="status">
+                <span class="status-dot" id="status-dot"></span>
+                <span>Real-time monitoring</span>
+            </div>
+        </div>
+        
+        <div class="metrics-grid" id="metrics-grid">
+            <div class="metric-card">
+                <div class="metric-value" id="total-alerts">-</div>
+                <div class="metric-label">Total Alerts</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-value high-risk" id="high-risk">-</div>
+                <div class="metric-label">High Risk</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-value medium-risk" id="medium-risk">-</div>
+                <div class="metric-label">Medium Risk</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-value" id="total-volume">-</div>
+                <div class="metric-label">Flagged Volume</div>
+            </div>
+        </div>
+        
+        <div class="section">
+            <div class="section-header">
+                <h2 class="section-title">Large Trades</h2>
+                <span class="refresh-status" id="refresh-status">Last updated: -</span>
+            </div>
+            
+            <div class="filters">
+                <button class="filter-btn active" onclick="setTradeFilter('all')">All</button>
+                <button class="filter-btn" onclick="setTradeFilter('whale')">Whales (≥$50K)</button>
+                <button class="filter-btn" onclick="setTradeFilter('big')">Large (≥$10K)</button>
+                <button class="filter-btn" onclick="setTradeFilter('high-risk')">High Risk</button>
+            </div>
+            
+            <div class="content" id="large-trades-content">
+                <div class="loading">
+                    <div class="spinner"></div>
+                    <div>Loading trades...</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="section">
+            <div class="section-header">
+                <h2 class="section-title">Recent Alerts</h2>
+                <span class="refresh-status" id="auto-refresh">Auto-refresh: 10s</span>
+            </div>
+            
+            <div class="filters">
+                <button class="filter-btn active" onclick="setFilter('ALL')">All</button>
+                <button class="filter-btn" onclick="setFilter('HIGH')">High Risk</button>
+                <button class="filter-btn" onclick="setFilter('MEDIUM')">Medium Risk</button>
+                <button class="filter-btn" onclick="setFilter('LOW')">Low Risk</button>
+            </div>
+            
+            <div class="content" id="alerts-content">
+                <div class="loading">
+                    <div class="spinner"></div>
+                    <div>Loading alerts...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:8000/api';
+        let currentFilter = 'ALL';
+        let currentTradeFilter = 'all';
+        let refreshInterval;
+        
+        function formatCurrency(amount) {
+            if (!amount) return '$0';
+            if (amount >= 1000000) return `$${(amount/1000000).toFixed(1)}M`;
+            if (amount >= 1000) return `$${(amount/1000).toFixed(1)}K`;
+            return `$${Math.round(amount)}`;
+        }
+        
+        function formatAddress(address) {
+            if (!address) return 'Unknown';
+            return address.substring(0, 6) + '...' + address.substring(address.length - 4);
+        }
+        
+        function getUrgencyClass(daysLeft) {
+            if (daysLeft <= 1) return 'urgency-high';
+            if (daysLeft <= 7) return 'urgency-medium';
+            return '';
+        }
+        
+        function getUrgencyText(daysLeft) {
+            if (daysLeft <= 0) return 'CLOSED';
+            if (daysLeft <= 1) return 'CLOSES TODAY';
+            if (daysLeft <= 7) return `${Math.round(daysLeft)} days left`;
+            return '';
+        }
+        
+        function setFilter(filter) {
+            currentFilter = filter;
+            document.querySelectorAll('.section:last-child .filter-btn').forEach(btn => btn.classList.remove('active'));
+            event.target.classList.add('active');
+            loadAlerts();
+        }
+        
+        function setTradeFilter(filter) {
+            currentTradeFilter = filter;
+            document.querySelectorAll('.section:first-of-type .filter-btn').forEach(btn => btn.classList.remove('active'));
+            event.target.classList.add('active');
+            loadLargeTrades();
+        }
+        
+        async function loadStats() {
+            try {
+                const response = await fetch(`${API_BASE}/stats`);
+                const stats = await response.json();
+                
+                document.getElementById('total-alerts').textContent = stats.total_alerts || 0;
+                document.getElementById('high-risk').textContent = stats.high_risk || 0;
+                document.getElementById('medium-risk').textContent = stats.medium_risk || 0;
+                document.getElementById('total-volume').textContent = formatCurrency(stats.total_volume);
+                
+                document.getElementById('status-dot').className = 'status-dot';
+            } catch (error) {
+                console.error('Error loading stats:', error);
+                document.getElementById('status-dot').className = 'status-dot status-offline';
+            }
+        }
+        
+        async function loadLargeTrades() {
+            try {
+                let minAmount = 1000;
+                if (currentTradeFilter === 'whale') minAmount = 50000;
+                else if (currentTradeFilter === 'big') minAmount = 10000;
+                
+                const response = await fetch(`${API_BASE}/large-trades?min_amount=${minAmount}&hours=168`);
+                const data = await response.json();
+                
+                const content = document.getElementById('large-trades-content');
+                document.getElementById('refresh-status').textContent = `Last updated: ${new Date().toLocaleTimeString()}`;
+                
+                if (!data.trades || data.trades.length === 0) {
+                    content.innerHTML = `
+                        <div class="empty-state">
+                            <div class="empty-icon">📊</div>
+                            <div>No trades found matching criteria</div>
+                        </div>
+                    `;
+                    return;
+                }
+                
+                let filteredTrades = data.trades;
+                if (currentTradeFilter === 'high-risk') {
+                    filteredTrades = data.trades.filter(trade => trade.risk_level === 'HIGH');
+                }
+                
+                content.innerHTML = filteredTrades.map(trade => {
+                    const daysLeft = parseFloat(trade.days_until_close) || 999;
+                    const urgencyClass = getUrgencyClass(daysLeft);
+                    const urgencyText = getUrgencyText(daysLeft);
+                    const riskClass = `risk-${trade.risk_level.toLowerCase()}`;
+                    
+                    // Generate insights
+                    const insights = [];
+                    const odds = parseFloat(trade.bet_odds) || 0.5;
+                    const amount = parseFloat(trade.amount_usd) || 0;
+                    
+                    if (trade.market_category === 'Politics' && amount > 50000) {
+                        insights.push('Large political bet - possible insider information');
+                    } else if (daysLeft <= 7 && amount > 25000) {
+                        insights.push('High-value bet close to market close - investigate timing');
+                    } else if (odds < 0.2 && amount > 20000) {
+                        insights.push('Large bet on unlikely outcome - potential inside information');
+                    }
+                    
+                    // Extract Polymarket URL
+                    let polymarketUrl = '';
+                    if (trade.market_description && trade.market_description.includes('Real Polymarket market:')) {
+                        polymarketUrl = trade.market_description.split('Real Polymarket market: ')[1];
+                    }
+                    
+                    return `
+                        <div class="trade-item">
+                            <div class="trade-header">
+                                <div class="amount">${formatCurrency(trade.amount_usd)}</div>
+                                <div class="risk-badge ${riskClass}">
+                                    ${trade.risk_level} (${trade.risk_score}/100)
+                                </div>
+                            </div>
+                            
+                            <div class="market-title">
+                                ${trade.market_title}
+                                ${urgencyText ? `<span class="${urgencyClass}"> • ${urgencyText}</span>` : ''}
+                            </div>
+                            
+                            <div class="trade-details">
+                                <div class="detail-group">
+                                    <span>Wallet</span><br>
+                                    <span class="detail-value">${formatAddress(trade.wallet)} (${(trade.wallet_age_hours / 24).toFixed(1)}d old)</span>
+                                </div>
+                                <div class="detail-group">
+                                    <span>Position</span><br>
+                                    <span class="detail-value">${trade.bet_side} @ ${parseFloat(trade.bet_odds || 0).toFixed(3)}</span>
+                                </div>
+                                <div class="detail-group">
+                                    <span>Category</span><br>
+                                    <span class="detail-value">${trade.market_category}</span>
+                                </div>
+                                <div class="detail-group">
+                                    <span>Activity</span><br>
+                                    <span class="detail-value">${trade.total_trades} trades, ${formatCurrency(trade.total_volume_usd)}</span>
+                                </div>
+                            </div>
+                            
+                            ${(trade.flags || []).length > 0 ? `
+                                <div class="flags">
+                                    ${(trade.flags || []).map(flag => `<span class="flag">${flag}</span>`).join('')}
+                                </div>
+                            ` : ''}
+                            
+                            ${insights.length > 0 ? `
+                                <div class="insight">
+                                    ${insights.join(' • ')}
+                                </div>
+                            ` : ''}
+                            
+                            <div class="links">
+                                ${polymarketUrl ? `
+                                    <a href="${polymarketUrl}" target="_blank" class="link">View on Polymarket</a>
+                                    <a href="https://polygonscan.com/tx/${trade.tx_hash}" target="_blank" class="link link-secondary">Blockchain</a>
+                                ` : `
+                                    <a href="https://polygonscan.com/tx/${trade.tx_hash}" target="_blank" class="link">View Transaction</a>
+                                `}
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+                
+            } catch (error) {
+                console.error('Error loading large trades:', error);
+                document.getElementById('large-trades-content').innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-icon">⚠️</div>
+                        <div>Error loading trades</div>
+                    </div>
+                `;
+            }
+        }
+        
+        async function loadAlerts() {
+            try {
+                const params = new URLSearchParams({
+                    confidence: currentFilter === 'ALL' ? '' : currentFilter,
+                    hours: 24,
+                    limit: 20
+                });
+                
+                const response = await fetch(`${API_BASE}/alerts?${params}`);
+                const data = await response.json();
+                
+                const content = document.getElementById('alerts-content');
+                
+                if (!data.alerts || data.alerts.length === 0) {
+                    content.innerHTML = `
+                        <div class="empty-state">
+                            <div class="empty-icon">🔍</div>
+                            <div>No alerts found. System monitoring for suspicious activity.</div>
+                        </div>
+                    `;
+                    return;
+                }
+                
+                content.innerHTML = data.alerts.map(alert => `
+                    <div class="trade-item">
+                        <div class="trade-header">
+                            <div class="amount">${formatCurrency(alert.amount_usd)}</div>
+                            <div class="risk-badge risk-${alert.confidence_level.toLowerCase()}">
+                                ${alert.confidence_level} (${alert.insider_score}/100)
+                            </div>
+                        </div>
+                        
+                        <div class="market-title">${alert.market_title}</div>
+                        
+                        <div class="trade-details">
+                            <div class="detail-group">
+                                <span>Wallet</span><br>
+                                <span class="detail-value">${formatAddress(alert.wallet_address)}</span>
+                            </div>
+                            <div class="detail-group">
+                                <span>Win Rate</span><br>
+                                <span class="detail-value">${(alert.win_rate * 100).toFixed(1)}%</span>
+                            </div>
+                            <div class="detail-group">
+                                <span>Time</span><br>
+                                <span class="detail-value">${new Date(alert.created_at).toLocaleString()}</span>
+                            </div>
+                        </div>
+                        
+                        ${(alert.flags || []).length > 0 ? `
+                            <div class="flags">
+                                ${(alert.flags || []).map(flag => `<span class="flag">${flag}</span>`).join('')}
+                            </div>
+                        ` : ''}
+                    </div>
+                `).join('');
+                
+            } catch (error) {
+                console.error('Error loading alerts:', error);
+                document.getElementById('alerts-content').innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-icon">⚠️</div>
+                        <div>Error loading alerts</div>
+                    </div>
+                `;
+            }
+        }
+        
+        function startAutoRefresh() {
+            loadStats();
+            loadAlerts();
+            loadLargeTrades();
+            
+            let countdown = 10;
+            refreshInterval = setInterval(() => {
+                countdown--;
+                document.getElementById('auto-refresh').textContent = `Auto-refresh: ${countdown}s`;
+                
+                if (countdown <= 0) {
+                    loadStats();
+                    loadAlerts();
+                    loadLargeTrades();
+                    countdown = 10;
+                }
+            }, 1000);
+        }
+        
+        // Start the dashboard
+        startAutoRefresh();
+        
+        // Handle page visibility
+        document.addEventListener('visibilitychange', function() {
+            if (document.hidden) {
+                clearInterval(refreshInterval);
+            } else {
+                startAutoRefresh();
+            }
+        });
+    </script>
+</body>
+</html>
